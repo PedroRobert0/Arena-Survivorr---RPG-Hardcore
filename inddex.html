@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Arena Survivor - RPG Hardcore</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; }
+        .hud { position: absolute; width: 100%; top: 20px; display: flex; flex-direction: column; align-items: center; pointer-events: none; display: none; }
+        #menu { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); z-index: 10; }
+        .stats { font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000; }
+        #hp-cont { width: 300px; height: 15px; background: #333; border: 2px solid #555; border-radius: 10px; overflow: hidden; }
+        #hp-fill { height: 100%; width: 100%; background: #2ecc71; transition: 0.2s; }
+        button { width: 200px; padding: 15px; margin: 10px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        .btn-1 { background: #2ecc71; color: white; }
+        .btn-2 { background: #f1c40f; color: black; }
+        .btn-3 { background: #e74c3c; color: white; }
+        button:hover { transform: scale(1.1); filter: brightness(1.2); }
+        .legend { font-size: 0.8rem; color: #ccc; margin-top: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1 style="color:#2980b9">ARENA SURVIVOR</h1>
+        <button class="btn-1" onclick="startGame(1)">MODO FÁCIL</button>
+        <button class="btn-2" onclick="startGame(2)">MODO NORMAL</button>
+        <button class="btn-3" onclick="startGame(3)">MODO IMPOSSÍVEL</button>
+        <div class="legend">
+            🟡 Força +5 | 🟢 Vida +5 | 🔴 Resistência +5<br>
+            <span style="color:#ff7675">Atenção: Os itens somem em 3 segundos!</span>
+        </div>
+    </div>
+
+    <div class="hud" id="hud">
+        <div class="stats">Força: <span id="pwr">2.0</span> | Vida Máx: <span id="mxhp">100</span> | Abates: <span id="kls">0</span></div>
+        <div id="hp-cont"><div id="hp-fill"></div></div>
+    </div>
+    <canvas id="g"></canvas>
+
+<script>
+    const cv = document.getElementById('g'), ctx = cv.getContext('2d');
+    let w = cv.width = window.innerWidth, h = cv.height = window.innerHeight;
+    let score = 0, power = 2.0, ticks = 0, enes = [], drps = [], keys = {};
+    let diffSetting = 2;
+    let gameActive = false;
+    
+    let p = { x: w/2, y: h/2, a: 0, hp: 100, maxHp: 100, s: 0, r: 20 };
+
+    window.onkeydown = e => keys[e.code] = 1;
+    window.onkeyup = e => keys[e.code] = 0;
+
+    function startGame(d) {
+        diffSetting = d;
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('hud').style.display = 'flex';
+        gameActive = true;
+        loop();
+    }
+
+    function spawn() {
+        if(!gameActive) return;
+        const edge = Math.floor(Math.random() * 4);
+        let x, y;
+        if(edge==0){x=Math.random()*w; y=-30} else if(edge==1){x=w+30; y=Math.random()*h}
+        else if(edge==2){x=Math.random()*w; y=h+30} else {x=-30; y=Math.random()*h}
+
+        let enemyHp = 1.5, enemySpd = 1.2;
+        if(diffSetting == 1) { enemyHp = 1.0; enemySpd = 0.9; }
+        if(diffSetting == 3) { enemyHp = 5.0; enemySpd = 2.2; }
+
+        enes.push({ x, y, hp: enemyHp, r: 18, spd: enemySpd + score/150, a: 0, s: 0, hit: 0 });
+    }
+
+    function drawChar(x, y, angle, color, isPunching, side, isHit) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = isHit ? '#fff' : color;
+        ctx.fillRect(-12, -15, 24, 30);
+        ctx.fillStyle = '#fdb';
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.fill();
+        let punch = isPunching ? 18 : 0;
+        ctx.beginPath(); ctx.arc(12 + (side ? punch : 0), 15, 6, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(12 + (!side ? punch : 0), -15, 6, 0, 7); ctx.fill();
+        ctx.restore();
+    }
+
+    function loop() {
+        if(!gameActive) return;
+        ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
+        
+        let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+        let my = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+        if (mx || my) { p.a = Math.atan2(my, mx); p.x += mx * 5; p.y += my * 5; }
+
+        if (keys.Space && ticks <= 0) {
+            ticks = 8; p.s = !p.s;
+            enes.forEach((e, i) => {
+                let d = Math.hypot(e.x - p.x, e.y - p.y);
+                let ang = Math.atan2(e.y - p.y, e.x - p.x) - p.a;
+                while (ang < -Math.PI) ang += 6.28; while (ang > Math.PI) ang -= 6.28;
+                if (d < 65 && Math.abs(ang) < 0.9) {
+                    e.hp -= power; e.hit = 5;
+                    if (e.hp <= 0) { 
+                        score++; enes.splice(i, 1); 
+                        let r = Math.random();
+                        let type = r < 0.33 ? 'yellow' : r < 0.66 ? 'green' : 'red';
+                        drps.push({ x: e.x, y: e.y, type, life: 180 }); // 180 frames = 3 segundos
+                    }
+                }
+            });
+        }
+        if (ticks > 0) ticks--;
+
+        enes.forEach(e => {
+            let ang = Math.atan2(p.y - e.y, p.x - e.x);
+            e.a = ang;
+            let dist = Math.hypot(p.x - e.x, p.y - e.y);
+            if (dist > p.r + e.r) {
+                e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd;
+            } else {
+                p.hp -= (diffSetting == 3 ? 0.6 : 0.25); 
+                if (p.hp <= 0) location.reload();
+            }
+            enes.forEach(o => {
+                if (e != o && Math.hypot(e.x - o.x, e.y - o.y) < e.r + o.r) {
+                    e.x -= Math.cos(ang) * e.spd; e.y -= Math.sin(ang) * e.spd;
+                }
+            });
+            drawChar(e.x, e.y, e.a, '#c0392b', false, false, e.hit-- > 0);
+        });
+
+        // Lógica dos Drops com tempo de vida
+        drps.forEach((d, i) => {
+            d.life--;
+            if (d.life <= 0) {
+                drps.splice(i, 1);
+                return;
+            }
+
+            // Pisca quando faltar 1 segundo (60 frames)
+            if (d.life < 60 && Math.floor(d.life / 5) % 2 == 0) return;
+
+            let colors = { yellow: '#f1c40f', green: '#2ecc71', red: '#e74c3c' };
+            ctx.fillStyle = colors[d.type];
+            ctx.shadowBlur = 10; ctx.shadowColor = colors[d.type];
+            ctx.beginPath(); ctx.arc(d.x, d.y, 8, 0, 7); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            if (Math.hypot(p.x - d.x, p.y - d.y) < 30) { 
+                if(d.type == 'yellow') power += 5;
+                if(d.type == 'green') p.hp = Math.min(p.maxHp, p.hp + 5);
+                if(d.type == 'red') { p.maxHp += 5; p.hp += 5; }
+                drps.splice(i, 1); 
+            }
+        });
+
+        drawChar(p.x, p.y, p.a, '#2980b9', ticks > 0, p.s, false);
+
+        document.getElementById('pwr').innerText = power.toFixed(0);
+        document.getElementById('mxhp').innerText = p.maxHp.toFixed(0);
+        document.getElementById('kls').innerText = score;
+        document.getElementById('hp-fill').style.width = (p.hp/p.maxHp*100) + "%";
+
+        let spawnRate = diffSetting == 3 ? 0.06 : 0.02;
+        if (Math.random() < spawnRate) spawn();
+
+        requestAnimationFrame(loop);
+    }
+</script>
+</body>
+</html>
