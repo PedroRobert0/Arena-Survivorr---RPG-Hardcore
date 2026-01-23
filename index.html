@@ -3,33 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title>Arena Survivor - RPG Hardcore</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
-        body { margin: 0; overflow: hidden; background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; touch-action: none; -webkit-user-select: none; user-select: none; }
-        
-        .overlay { position: absolute; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; padding: 0; overflow: hidden; background: #0a0a0a; color: #fff; 
+            font-family: 'Segoe UI', sans-serif; touch-action: none; -webkit-user-select: none; user-select: none;
+            width: 100vw; height: 100vh;
+        }
+        #g { display: block; width: 100vw; height: 100vh; }
+        .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
         .hidden { display: none !important; }
-        
         .hud { position: absolute; width: 100%; top: 20px; display: flex; flex-direction: column; align-items: center; pointer-events: none; display: none; z-index: 50; }
         .stats { font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000; }
         #hp-cont { width: 300px; height: 15px; background: #333; border: 2px solid #555; border-radius: 10px; overflow: hidden; }
         #hp-fill { height: 100%; width: 100%; background: #2ecc71; transition: 0.2s; }
-        
         button { width: 220px; padding: 15px; margin: 10px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; color: white; }
         .btn-device { background: #34495e; }
         .btn-1 { background: #2ecc71; }
         .btn-2 { background: #f1c40f; color: black; }
         .btn-3 { background: #e74c3c; }
-        
-        /* Legenda das Cores */
         .legend { font-size: 0.9rem; color: #ccc; margin-top: 20px; text-align: center; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; }
-
         #attack-btn { 
             position: absolute; bottom: 50px; right: 50px; width: 100px; height: 100px; 
             background: rgba(231, 76, 60, 0.8); border: 5px solid #fff; border-radius: 50%; 
             display: none; z-index: 1000; color: white; font-weight: bold; font-size: 1.2rem;
             align-items: center; justify-content: center; pointer-events: auto;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); -webkit-tap-highlight-color: transparent;
         }
         #attack-btn:active { transform: scale(0.9); background: rgba(192, 57, 43, 1); }
         #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 150px; height: 150px; display: none; z-index: 1000; }
@@ -49,7 +49,6 @@
         <button class="btn-1" onclick="startGame(1)">MODO FÁCIL</button>
         <button class="btn-2" onclick="startGame(2)">MODO NORMAL</button>
         <button class="btn-3" onclick="startGame(3)">MODO IMPOSSÍVEL</button>
-        
         <div class="legend">
             <span style="color:#f1c40f">🟡 AMARELO: Força +5</span> | 
             <span style="color:#2ecc71">🟢 VERDE: Vida +5</span> | 
@@ -72,19 +71,96 @@
 
 <script>
     const cv = document.getElementById('g'), ctx = cv.getContext('2d');
-    let w = cv.width = window.innerWidth, h = cv.height = window.innerHeight;
-    let score = 0, power = 2.0, ticks = 0, enes = [], drps = [], keys = {};
-    let diffSetting = 2;
-    let gameActive = false;
-    let isMobileMode = false;
-    let mobileDir = { x: 0, y: 0 };
+    let w, h;
     
-    let p = { x: w/2, y: h/2, a: 0, hp: 100, maxHp: 100, s: 0, r: 20 };
+    // --- SISTEMA DE ÁUDIO MELHORADO ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let musicStarted = false;
+
+    function playPunchSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(120 + Math.random() * 60, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function playCollectSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300 + Math.random() * 500, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // MÚSICA GERATIVA (NUNCA REPETE IGUAL)
+    function startBackgroundMusic() {
+        if (musicStarted) return;
+        musicStarted = true;
+        
+        // Frequências da escala de Dó Menor (C, Eb, F, G, Bb)
+        const scale = [261.63, 311.13, 349.23, 392.00, 466.16];
+        
+        function playNextNote() {
+            if (!gameActive) return;
+
+            // Chance de silêncio para não cansar (20% de chance)
+            if (Math.random() > 0.2) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                // Escolhe nota aleatória da escala
+                let freq = scale[Math.floor(Math.random() * scale.length)];
+                
+                // Chance de tocar uma oitava abaixo (mais grave/atmosférico)
+                if (Math.random() > 0.7) freq /= 2;
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime); 
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+                
+                osc.connect(gain); 
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1.0);
+            }
+            
+            // Tempo aleatório entre as notas (ritmo dinâmico)
+            const nextTime = [400, 600, 800][Math.floor(Math.random() * 3)];
+            setTimeout(playNextNote, nextTime);
+        }
+
+        playNextNote();
+    }
+
+    function resize() {
+        w = cv.width = window.innerWidth;
+        h = cv.height = window.innerHeight;
+    }
+
+    let score = 0, power = 2.0, ticks = 0, enes = [], drps = [], keys = {};
+    let diffSetting = 2, gameActive = false, isMobileMode = false, mobileDir = { x: 0, y: 0 };
+    let p = { x: window.innerWidth/2, y: window.innerHeight/2, a: 0, hp: 100, maxHp: 100, s: 0, r: 20 };
+
+    window.addEventListener('resize', resize);
+    resize();
 
     window.onkeydown = e => keys[e.code] = 1;
     window.onkeyup = e => keys[e.code] = 0;
 
     function setDevice(device) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         if (device === 'mobile') isMobileMode = true;
         document.getElementById('step-device').classList.add('hidden');
         document.getElementById('step-diff').classList.remove('hidden');
@@ -94,21 +170,13 @@
         document.getElementById('joystick-zone').style.display = 'block';
         const btn = document.getElementById('attack-btn');
         btn.style.display = 'flex';
-        
         const manager = nipplejs.create({
             zone: document.getElementById('joystick-zone'),
-            mode: 'static',
-            position: { left: '75px', bottom: '75px' },
-            color: 'white'
+            mode: 'static', position: { left: '75px', bottom: '75px' }, color: 'white'
         });
-
         manager.on('move', (evt, data) => {
-            if (data.vector) {
-                mobileDir.x = data.vector.x;
-                mobileDir.y = -data.vector.y;
-            }
+            if (data.vector) { mobileDir.x = data.vector.x; mobileDir.y = -data.vector.y; }
         });
-
         manager.on('end', () => { mobileDir.x = 0; mobileDir.y = 0; });
 
         const triggerAttack = (e) => {
@@ -116,17 +184,18 @@
             keys['Space'] = 1;
             setTimeout(() => { keys['Space'] = 0; }, 100);
         };
-
         btn.addEventListener('touchstart', triggerAttack);
         btn.addEventListener('mousedown', triggerAttack);
     }
 
     function startGame(d) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         diffSetting = d;
         document.getElementById('step-diff').classList.add('hidden');
         document.getElementById('hud').style.display = 'flex';
         if (isMobileMode) setupMobileControls();
         gameActive = true;
+        startBackgroundMusic();
         loop();
     }
 
@@ -142,9 +211,7 @@
     }
 
     function drawChar(x, y, angle, color, isPunching, side, isHit) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(angle);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
         ctx.fillStyle = isHit ? '#fff' : color;
         ctx.fillRect(-12, -15, 24, 30);
         ctx.fillStyle = '#fdb';
@@ -158,22 +225,22 @@
     function loop() {
         if(!gameActive) return;
         ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
-        
         let mx = 0, my = 0;
-        if (isMobileMode) {
-            mx = mobileDir.x; my = mobileDir.y;
-        } else {
+        if (isMobileMode) { mx = mobileDir.x; my = mobileDir.y; } 
+        else {
             mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
             my = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
         }
 
         if (mx !== 0 || my !== 0) { 
-            p.a = Math.atan2(my, mx); 
-            p.x += mx * 5; p.y += my * 5; 
+            p.a = Math.atan2(my, mx); p.x += mx * 5; p.y += my * 5; 
+            p.x = Math.max(p.r, Math.min(w - p.r, p.x));
+            p.y = Math.max(p.r, Math.min(h - p.r, p.y));
         }
 
         if (keys['Space'] && ticks <= 0) {
             ticks = 8; p.s = !p.s;
+            playPunchSound();
             enes.forEach((e, i) => {
                 let d = Math.hypot(e.x - p.x, e.y - p.y);
                 let ang = Math.atan2(e.y - p.y, e.x - p.x) - p.a;
@@ -192,25 +259,20 @@
         if (ticks > 0) ticks--;
 
         enes.forEach(e => {
-            let ang = Math.atan2(p.y - e.y, p.x - e.x);
-            e.a = ang;
+            let ang = Math.atan2(p.y - e.y, p.x - e.x); e.a = ang;
             let dist = Math.hypot(p.x - e.x, p.y - e.y);
-            if (dist > p.r + e.r) {
-                e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd;
-            } else {
-                p.hp -= (diffSetting == 3 ? 0.6 : 0.25); 
-                if (p.hp <= 0) location.reload();
-            }
+            if (dist > p.r + e.r) { e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd; } 
+            else { p.hp -= (diffSetting == 3 ? 0.6 : 0.25); if (p.hp <= 0) location.reload(); }
             drawChar(e.x, e.y, e.a, '#c0392b', false, false, e.hit-- > 0);
         });
 
         drps.forEach((d, i) => {
-            d.life--;
-            if (d.life <= 0) { drps.splice(i, 1); return; }
+            d.life--; if (d.life <= 0) { drps.splice(i, 1); return; }
             let colors = { yellow: '#f1c40f', green: '#2ecc71', red: '#e74c3c' };
             ctx.fillStyle = colors[d.type];
             ctx.beginPath(); ctx.arc(d.x, d.y, 8, 0, 7); ctx.fill();
             if (Math.hypot(p.x - d.x, p.y - d.y) < 30) { 
+                playCollectSound();
                 if(d.type == 'yellow') power += 5;
                 if(d.type == 'green') p.hp = Math.min(p.maxHp, p.hp + 5);
                 if(d.type == 'red') { p.maxHp += 5; p.hp += 5; }
@@ -223,15 +285,9 @@
         document.getElementById('mxhp').innerText = p.maxHp.toFixed(0);
         document.getElementById('kls').innerText = score;
         document.getElementById('hp-fill').style.width = (p.hp/p.maxHp*100) + "%";
-
         if (Math.random() < (diffSetting == 3 ? 0.06 : 0.02)) spawn();
         requestAnimationFrame(loop);
     }
-
-    window.addEventListener('resize', () => {
-        w = cv.width = window.innerWidth;
-        h = cv.height = window.innerHeight;
-    });
 </script>
 </body>
 </html>
