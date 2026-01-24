@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Arena Survivor - RPG Hardcore</title>
+    <title>Arena Survivor - Score & Legend</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
         * { box-sizing: border-box; }
@@ -15,7 +15,7 @@
         .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.95); z-index: 100; }
         .hidden { display: none !important; }
         .hud { position: absolute; width: 100%; top: 20px; display: flex; flex-direction: column; align-items: center; pointer-events: none; display: none; z-index: 50; }
-        .stats { font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000; }
+        .stats { font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000; text-align: center; }
         #hp-cont { width: 300px; height: 15px; background: #333; border: 2px solid #555; border-radius: 10px; overflow: hidden; }
         #hp-fill { height: 100%; width: 100%; background: #2ecc71; transition: 0.2s; }
         button { width: 220px; padding: 15px; margin: 10px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; color: white; }
@@ -23,25 +23,26 @@
         .btn-1 { background: #2ecc71; }
         .btn-2 { background: #f1c40f; color: black; }
         .btn-3 { background: #e74c3c; }
-        .legend { font-size: 0.9rem; color: #ccc; margin-top: 20px; text-align: center; line-height: 1.6; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; }
+        .legend { font-size: 0.85rem; color: #ccc; margin-top: 20px; text-align: center; line-height: 1.5; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid #444; }
+        .best-score { color: #f1c40f; font-size: 1.4rem; margin-bottom: 10px; font-weight: bold; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
         #attack-btn { 
             position: absolute; bottom: 50px; right: 50px; width: 100px; height: 100px; 
             background: rgba(231, 76, 60, 0.8); border: 5px solid #fff; border-radius: 50%; 
             display: none; z-index: 1000; color: white; font-weight: bold; font-size: 1.2rem;
             align-items: center; justify-content: center; pointer-events: auto;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5); -webkit-tap-highlight-color: transparent;
         }
-        #attack-btn:active { transform: scale(0.9); background: rgba(192, 57, 43, 1); }
         #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 150px; height: 150px; display: none; z-index: 1000; }
+        .score-anim { color: #f1c40f; font-size: 1.5rem; }
     </style>
 </head>
 <body>
 
     <div id="step-device" class="overlay">
         <h1 style="color:#2980b9">ARENA SURVIVOR</h1>
-        <p>SELECIONE O CONTROLE</p>
+        <div class="best-score">RECORDE GLOBAL: <span id="high-score-menu">0</span></div>
+        <p>COMO VOCÊ VAI JOGAR?</p>
         <button class="btn-device" onclick="setDevice('pc')">PC (TECLADO)</button>
-        <button class="btn-device" onclick="setDevice('mobile')">MOBILE (JOYSTICK)</button>
+        <button class="btn-device" onclick="setDevice('mobile')">MOBILE (TOUCH)</button>
     </div>
 
     <div id="step-diff" class="overlay hidden">
@@ -49,16 +50,25 @@
         <button class="btn-1" onclick="startGame(1)">MODO FÁCIL</button>
         <button class="btn-2" onclick="startGame(2)">MODO NORMAL</button>
         <button class="btn-3" onclick="startGame(3)">MODO IMPOSSÍVEL</button>
+        
         <div class="legend">
-            <span style="color:#f1c40f">🟡 AMARELO: Força +5</span> | 
-            <span style="color:#2ecc71">🟢 VERDE: Vida +5</span> | 
-            <span style="color:#e74c3c">🔴 VERMELHO: Resistência +5</span><br>
-            <span style="color:#ff7675; font-weight: bold;">Atenção: Os itens somem em 3 segundos!</span>
+            <b style="color: #fff;">GUIA DE ITENS:</b><br>
+            <span style="color:#f1c40f">🟡 Amarelo:</span> Força +5 | 
+            <span style="color:#2ecc71">🟢 Verde:</span> Cura +20 HP<br>
+            <span style="color:#e74c3c">🔴 Vermelho:</span> Vida Máx +10 | 
+            <span style="color:#9b59b6">🟣 Roxo (50 Kills):</span> ESPECIAL<br>
+            <hr style="border: 0; border-top: 1px solid #444; margin: 8px 0;">
+            <b style="color: #fff;">SISTEMA DE SCORE:</b><br>
+            Kill: <span style="color:#2ecc71">+10</span> | Pegar Item: <span style="color:#2ecc71">+50</span><br>
+            <span style="color:#e74c3c">Tomar Dano diminui seu Score!</span>
         </div>
     </div>
 
     <div class="hud" id="hud">
-        <div class="stats">Força: <span id="pwr">2.0</span> | Vida Máx: <span id="mxhp">100</span> | Abates: <span id="kls">0</span></div>
+        <div class="stats">
+            <span style="color:#f1c40f">SCORE:</span> <span id="score-val" class="score-anim">0</span><br>
+            Kills: <span id="kls">0</span> | Recorde: <span id="high-score-hud">0</span>
+        </div>
         <div id="hp-cont"><div id="hp-fill"></div></div>
     </div>
 
@@ -71,87 +81,36 @@
 
 <script>
     const cv = document.getElementById('g'), ctx = cv.getContext('2d');
-    let w, h;
+    let w, h, score = 0, kills = 0, power = 2.0, ticks = 0, enes = [], drps = [], keys = {};
+    let diffSetting = 2, gameActive = false, isMobileMode = false, mobileDir = { x: 0, y: 0 };
+    let p = { x: 0, y: 0, a: 0, hp: 100, maxHp: 100, s: 0, r: 20 };
     
-    // --- SISTEMA DE ÁUDIO MELHORADO ---
+    let specialActive = false, specialTimer = 0, currentType = 'purple';
+    let noDamageTimer = 0; 
+
+    let highScore = localStorage.getItem('arenaScoreV3') || 0;
+    document.getElementById('high-score-menu').innerText = highScore;
+    document.getElementById('high-score-hud').innerText = highScore;
+
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let musicStarted = false;
 
-    function playPunchSound() {
+    function playSound(freq, type, duration) {
+        if (audioCtx.state === 'suspended') return;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(120 + Math.random() * 60, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
         osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    function playCollectSound() {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(300 + Math.random() * 500, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    // MÚSICA GERATIVA (NUNCA REPETE IGUAL)
-    function startBackgroundMusic() {
-        if (musicStarted) return;
-        musicStarted = true;
-        
-        // Frequências da escala de Dó Menor (C, Eb, F, G, Bb)
-        const scale = [261.63, 311.13, 349.23, 392.00, 466.16];
-        
-        function playNextNote() {
-            if (!gameActive) return;
-
-            // Chance de silêncio para não cansar (20% de chance)
-            if (Math.random() > 0.2) {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                
-                // Escolhe nota aleatória da escala
-                let freq = scale[Math.floor(Math.random() * scale.length)];
-                
-                // Chance de tocar uma oitava abaixo (mais grave/atmosférico)
-                if (Math.random() > 0.7) freq /= 2;
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                
-                gain.gain.setValueAtTime(0.04, audioCtx.currentTime); 
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
-                
-                osc.connect(gain); 
-                gain.connect(audioCtx.destination);
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + 1.0);
-            }
-            
-            // Tempo aleatório entre as notas (ritmo dinâmico)
-            const nextTime = [400, 600, 800][Math.floor(Math.random() * 3)];
-            setTimeout(playNextNote, nextTime);
-        }
-
-        playNextNote();
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
     }
 
     function resize() {
         w = cv.width = window.innerWidth;
         h = cv.height = window.innerHeight;
+        p.x = w/2; p.y = h/2;
     }
-
-    let score = 0, power = 2.0, ticks = 0, enes = [], drps = [], keys = {};
-    let diffSetting = 2, gameActive = false, isMobileMode = false, mobileDir = { x: 0, y: 0 };
-    let p = { x: window.innerWidth/2, y: window.innerHeight/2, a: 0, hp: 100, maxHp: 100, s: 0, r: 20 };
 
     window.addEventListener('resize', resize);
     resize();
@@ -166,36 +125,19 @@
         document.getElementById('step-diff').classList.remove('hidden');
     }
 
-    function setupMobileControls() {
-        document.getElementById('joystick-zone').style.display = 'block';
-        const btn = document.getElementById('attack-btn');
-        btn.style.display = 'flex';
-        const manager = nipplejs.create({
-            zone: document.getElementById('joystick-zone'),
-            mode: 'static', position: { left: '75px', bottom: '75px' }, color: 'white'
-        });
-        manager.on('move', (evt, data) => {
-            if (data.vector) { mobileDir.x = data.vector.x; mobileDir.y = -data.vector.y; }
-        });
-        manager.on('end', () => { mobileDir.x = 0; mobileDir.y = 0; });
-
-        const triggerAttack = (e) => {
-            e.preventDefault();
-            keys['Space'] = 1;
-            setTimeout(() => { keys['Space'] = 0; }, 100);
-        };
-        btn.addEventListener('touchstart', triggerAttack);
-        btn.addEventListener('mousedown', triggerAttack);
-    }
-
     function startGame(d) {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
         diffSetting = d;
         document.getElementById('step-diff').classList.add('hidden');
         document.getElementById('hud').style.display = 'flex';
-        if (isMobileMode) setupMobileControls();
+        if (isMobileMode) {
+            document.getElementById('joystick-zone').style.display = 'block';
+            document.getElementById('attack-btn').style.display = 'flex';
+            const manager = nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: { left: '75px', bottom: '75px' }, color: 'white' });
+            manager.on('move', (evt, data) => { mobileDir.x = data.vector.x; mobileDir.y = -data.vector.y; });
+            manager.on('end', () => { mobileDir.x = 0; mobileDir.y = 0; });
+            document.getElementById('attack-btn').addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = 1; setTimeout(() => keys['Space'] = 0, 100); });
+        }
         gameActive = true;
-        startBackgroundMusic();
         loop();
     }
 
@@ -205,9 +147,7 @@
         let x, y;
         if(edge==0){x=Math.random()*w; y=-30} else if(edge==1){x=w+30; y=Math.random()*h}
         else if(edge==2){x=Math.random()*w; y=h+30} else {x=-30; y=Math.random()*h}
-        let enemyHp = (diffSetting == 1 ? 1.0 : diffSetting == 3 ? 5.0 : 1.5);
-        let enemySpd = (diffSetting == 1 ? 0.9 : diffSetting == 3 ? 2.2 : 1.2);
-        enes.push({ x, y, hp: enemyHp, r: 18, spd: enemySpd + score/150, a: 0, s: 0, hit: 0 });
+        enes.push({ x, y, hp: (diffSetting*1.5), r: 18, spd: (1.2 + kills/100), a: 0, hit: 0 });
     }
 
     function drawChar(x, y, angle, color, isPunching, side, isHit) {
@@ -225,12 +165,9 @@
     function loop() {
         if(!gameActive) return;
         ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
-        let mx = 0, my = 0;
-        if (isMobileMode) { mx = mobileDir.x; my = mobileDir.y; } 
-        else {
-            mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-            my = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
-        }
+
+        let mx = isMobileMode ? mobileDir.x : (keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0);
+        let my = isMobileMode ? mobileDir.y : (keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);
 
         if (mx !== 0 || my !== 0) { 
             p.a = Math.atan2(my, mx); p.x += mx * 5; p.y += my * 5; 
@@ -238,54 +175,105 @@
             p.y = Math.max(p.r, Math.min(h - p.r, p.y));
         }
 
-        if (keys['Space'] && ticks <= 0) {
-            ticks = 8; p.s = !p.s;
-            playPunchSound();
+        noDamageTimer++;
+        if(noDamageTimer > 120) { score += 5; noDamageTimer = 0; }
+
+        if (specialActive) {
+            specialTimer--;
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a);
+            let col1 = currentType === 'purple' ? '#a020f0' : (currentType === 'cyan' ? '#00ffff' : '#ff4500');
+            ctx.shadowBlur = 20; ctx.shadowColor = col1; ctx.fillStyle = col1;
+            ctx.beginPath(); ctx.arc(25, 0, 15 + Math.random()*8, 0, 7); ctx.fill();
+            if (currentType === 'purple') {
+                let grad = ctx.createLinearGradient(25, 0, 800, 0);
+                grad.addColorStop(0, "#fff"); grad.addColorStop(0.3, col1); grad.addColorStop(1, "transparent");
+                ctx.fillStyle = grad; ctx.fillRect(25, -25, 800, 50);
+            } else if (currentType === 'cyan') {
+                ctx.strokeStyle = col1; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0,0, (300-specialTimer)*4, 0, 7); ctx.stroke();
+            } else if (currentType === 'orange') {
+                ctx.fillStyle = col1;
+                for(let i=0; i<6; i++) {
+                    let ang = (Date.now()/80) + (i * Math.PI/3);
+                    ctx.beginPath(); ctx.arc(Math.cos(ang)*70, Math.sin(ang)*70, 12, 0, 7); ctx.fill();
+                }
+            }
+            ctx.restore();
             enes.forEach((e, i) => {
-                let d = Math.hypot(e.x - p.x, e.y - p.y);
-                let ang = Math.atan2(e.y - p.y, e.x - p.x) - p.a;
-                while (ang < -Math.PI) ang += 6.28; while (ang > Math.PI) ang -= 6.28;
-                if (d < 65 && Math.abs(ang) < 0.9) {
-                    e.hp -= power; e.hit = 5;
-                    if (e.hp <= 0) { 
-                        score++; enes.splice(i, 1); 
-                        let r = Math.random();
-                        let type = r < 0.33 ? 'yellow' : r < 0.66 ? 'green' : 'red';
-                        drps.push({ x: e.x, y: e.y, type, life: 180 });
-                    }
+                let d = Math.hypot(e.x - p.x, e.y - p.y), hit = false;
+                if(currentType === 'purple') { if(Math.abs(Math.atan2(e.y-p.y, e.x-p.x)-p.a)<0.25 && d<800) hit=true; }
+                else if(currentType === 'cyan') { if(d < (300-specialTimer)*4) hit=true; }
+                else if(currentType === 'orange') { if(d < 90) hit=true; }
+                if(hit) { e.hp -= 0.8; e.hit = 5; if(e.hp <= 0) { kills++; score += 10; dropLogic(e.x, e.y); enes.splice(i, 1); }}
+            });
+            if (specialTimer <= 0) specialActive = false;
+        }
+
+        if (keys['Space'] && ticks <= 0 && !specialActive) {
+            ticks = 8; p.s = !p.s; playSound(150, 'triangle', 0.1);
+            enes.forEach((e, i) => {
+                if (Math.hypot(e.x - p.x, e.y - p.y) < 65) { 
+                    e.hp -= power; e.hit = 5; 
+                    if (e.hp <= 0) { kills++; score += 10; dropLogic(e.x, e.y); enes.splice(i, 1); }
                 }
             });
         }
         if (ticks > 0) ticks--;
 
+        function dropLogic(x, y) {
+            let type;
+            if (kills > 0 && kills % 150 === 0) type = 'orange';
+            else if (kills % 100 === 0) type = 'cyan';
+            else if (kills % 50 === 0) type = 'purple';
+            else {
+                let r = Math.random();
+                if(r < 0.2) type = 'yellow'; else if(r < 0.4) type = 'green'; else if(r < 0.6) type = 'red'; else return;
+            }
+            drps.push({ x, y, type, life: 180 });
+        }
+
         enes.forEach(e => {
-            let ang = Math.atan2(p.y - e.y, p.x - e.x); e.a = ang;
-            let dist = Math.hypot(p.x - e.x, p.y - e.y);
-            if (dist > p.r + e.r) { e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd; } 
-            else { p.hp -= (diffSetting == 3 ? 0.6 : 0.25); if (p.hp <= 0) location.reload(); }
-            drawChar(e.x, e.y, e.a, '#c0392b', false, false, e.hit-- > 0);
+            let ang = Math.atan2(p.y - e.y, p.x - e.x);
+            e.x += Math.cos(ang) * e.spd; e.y += Math.sin(ang) * e.spd;
+            if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
+                p.hp -= 0.4;
+                score = Math.max(0, score - 1.5); 
+                noDamageTimer = 0; 
+            }
+            drawChar(e.x, e.y, ang, '#c0392b', false, false, e.hit-- > 0);
         });
 
         drps.forEach((d, i) => {
-            d.life--; if (d.life <= 0) { drps.splice(i, 1); return; }
-            let colors = { yellow: '#f1c40f', green: '#2ecc71', red: '#e74c3c' };
+            d.life--; if(d.life <= 0) drps.splice(i,1);
+            let colors = {yellow:'#f1c40f', green:'#2ecc71', red:'#e74c3c', purple:'#a020f0', cyan:'#00ffff', orange:'#ff4500'};
             ctx.fillStyle = colors[d.type];
-            ctx.beginPath(); ctx.arc(d.x, d.y, 8, 0, 7); ctx.fill();
-            if (Math.hypot(p.x - d.x, p.y - d.y) < 30) { 
-                playCollectSound();
-                if(d.type == 'yellow') power += 5;
-                if(d.type == 'green') p.hp = Math.min(p.maxHp, p.hp + 5);
-                if(d.type == 'red') { p.maxHp += 5; p.hp += 5; }
-                drps.splice(i, 1); 
+            ctx.beginPath(); ctx.arc(d.x, d.y, 10, 0, 7); ctx.fill();
+            if (Math.hypot(p.x - d.x, p.y - d.y) < 35) {
+                playSound(600, 'sine', 0.1);
+                score += 50; 
+                if(d.type=='yellow') power += 5;
+                if(d.type=='green') p.hp = Math.min(p.maxHp, p.hp+20);
+                if(d.type=='red') { p.maxHp += 10; p.hp += 10; }
+                if(['purple','cyan','orange'].includes(d.type)) { specialActive = true; specialTimer = 300; currentType = d.type; playSound(80, 'sawtooth', 5); }
+                drps.splice(i, 1);
             }
         });
 
-        drawChar(p.x, p.y, p.a, '#2980b9', ticks > 0, p.s, false);
-        document.getElementById('pwr').innerText = power.toFixed(0);
-        document.getElementById('mxhp').innerText = p.maxHp.toFixed(0);
-        document.getElementById('kls').innerText = score;
+        drawChar(p.x, p.y, p.a, '#2980b9', (ticks>0||specialActive), p.s, false);
+
+        document.getElementById('kls').innerText = kills;
+        document.getElementById('score-val').innerText = Math.floor(score);
         document.getElementById('hp-fill').style.width = (p.hp/p.maxHp*100) + "%";
-        if (Math.random() < (diffSetting == 3 ? 0.06 : 0.02)) spawn();
+        
+        if (score > highScore) {
+            highScore = Math.floor(score);
+            document.getElementById('high-score-hud').innerText = highScore;
+        }
+
+        if (p.hp <= 0) {
+            localStorage.setItem('arenaScoreV3', highScore);
+            location.reload();
+        }
+        if (Math.random() < 0.03) spawn();
         requestAnimationFrame(loop);
     }
 </script>
